@@ -1,0 +1,58 @@
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: keycert-handoff-job
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    job-name: keycert-handoff-job
+  annotations:
+    "helm.sh/hook": post-install
+spec:
+  template:
+    metadata:
+      name: keycert-handoff
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - ibm-ssp-cm
+            topologyKey: kubernetes.io/hostname
+      serviceAccountName: "keycert-sa"
+      initContainers:
+        - name: wait-for-cm
+          image: knickkennedy/kubectl-tools:1.28.4
+          imagePullPolicy: Always
+          command:
+            - "/scripts/wait-for-cm.sh"
+          args:
+            - " | ts"
+          volumeMounts:
+            - mountPath: /scripts
+              name: scripts
+      containers:
+        - name: keycert-handoff
+          image: knickkennedy/kubectl-tools:1.28.4
+          imagePullPolicy: Always
+          command:
+            - "/scripts/pull-keycert.sh"
+          args:
+            - " | ts"
+          volumeMounts:
+            - mountPath: /apps
+              name: pvc-mount
+            - mountPath: /scripts
+              name: scripts
+      restartPolicy: Never
+      volumes:
+      - name: pvc-mount
+        persistentVolumeClaim:
+          claimName: {{ index .Values "ibm-ssp-cm" "persistentVolume" "existingClaimName" | quote }}
+      - name: scripts
+        configMap:
+          name: keycert-scripts
+          defaultMode: 0554

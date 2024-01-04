@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycert-scripts
+  namespace: {{ .Values.namespace | quote }}
+data:
+  wait-for-cm.sh: |
+    #!/bin/bash
+    /scripts/base-wait.sh | ts '[%Y-%m-%d %H:%M:%S]' >> /proc/1/fd/1
+  pull-keycert.sh: |
+    #!/bin/bash
+    /scripts/base-pull-keycert.sh | ts '[%Y-%m-%d %H:%M:%S]' >> /proc/1/fd/1
+  base-wait.sh: |
+    #!/bin/bash
+    export POD_NAME=$(kubectl get pod -l app.kubernetes.io/name=ibm-ssp-cm -o jsonpath="{.items[0].metadata.name}")
+    echo "Found pod ${POD_NAME} that matches a configuration manager label."
+    echo "Waiting for ${POD_NAME} to be ready."
+    kubectl wait --for=condition=Ready pod/${POD_NAME} --timeout=1200s
+  base-pull-keycert.sh: |
+    #!/bin/bash
+    echo 'Attempting to create the keycert secret required by the Sterling Secure Engine' &&
+    kubectl create secret generic engine-key-cert \
+    --save-config \
+    --dry-run=client \
+    --from-file=keyCert=/apps/CM/defkeyCert.txt \
+    -o yaml | kubectl apply -f -

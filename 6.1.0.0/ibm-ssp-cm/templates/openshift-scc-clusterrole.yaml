@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "ibm-ssp-cm-scc"
+  labels:
+    app: "ibm-ssp-cm-scc"
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - ibm-ssp-cm-scc
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
